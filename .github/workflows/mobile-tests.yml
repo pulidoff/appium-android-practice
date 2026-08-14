@@ -8,11 +8,10 @@ on:
 
 jobs:
   android-tests:
-    # macos-latest currently resolves to an Apple Silicon (arm64) image, which
-    # cannot hardware-accelerate an x86_64 emulator and reliably times out on
-    # boot. Pin to the Intel-based image so the x86_64 AVD gets Hypervisor
-    # Framework acceleration.
-    runs-on: macos-13
+    # ubuntu-latest gives a much shorter runner queue than macOS. The x86_64
+    # emulator is hardware-accelerated via KVM (enabled below), matching the
+    # standard setup for reactivecircus/android-emulator-runner on Linux.
+    runs-on: ubuntu-latest
     timeout-minutes: 40
 
     steps:
@@ -43,6 +42,12 @@ jobs:
           curl -L -o apps/wdio-native-demo-app.apk \
             https://github.com/webdriverio/native-demo-app/releases/latest/download/Android-NativeDemoApp-Release.apk
 
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Cache Android AVD
         uses: actions/cache@v4
         id: avd-cache
@@ -50,7 +55,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-33-google_apis-x86_64-v1
+          key: avd-33-google_apis-x86_64-ubuntu-v1
 
       - name: Create AVD snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
