@@ -8,8 +8,12 @@ on:
 
 jobs:
   android-tests:
-    runs-on: macos-latest
-    timeout-minutes: 30
+    # macos-latest currently resolves to an Apple Silicon (arm64) image, which
+    # cannot hardware-accelerate an x86_64 emulator and reliably times out on
+    # boot. Pin to the Intel-based image so the x86_64 AVD gets Hypervisor
+    # Framework acceleration.
+    runs-on: macos-13
+    timeout-minutes: 40
 
     steps:
       - name: Checkout repository
@@ -39,6 +43,29 @@ jobs:
           curl -L -o apps/wdio-native-demo-app.apk \
             https://github.com/webdriverio/native-demo-app/releases/latest/download/Android-NativeDemoApp-Release.apk
 
+      - name: Cache Android AVD
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-33-google_apis-x86_64-v1
+
+      - name: Create AVD snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          avd-name: Pixel_7_Pro
+          force-avd-creation: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "AVD created, snapshot cached."
+
       - name: Run tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -47,7 +74,8 @@ jobs:
           arch: x86_64
           avd-name: Pixel_7_Pro
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
           disable-animations: true
           script: npm test
         env:
