@@ -42,7 +42,7 @@ exports.config = {
     bail: 0,
     waitforTimeout: 10000,
     connectionRetryTimeout: 120000,
-    connectionRetryCount: 3,
+    connectionRetryCount: 5,
 
     //
     // Services
@@ -51,11 +51,22 @@ exports.config = {
         ['appium', {
             command: 'appium',
             args: {
-                address: 'localhost',
+                // Bind explicitly to the IPv4 loopback address instead of
+                // 'localhost': some CI runners resolve 'localhost' to the
+                // IPv6 loopback first, which causes WebdriverIO's initial
+                // connection to fail with ECONNREFUSED even though Appium
+                // is up and listening on 127.0.0.1.
+                address: '127.0.0.1',
                 port: 4723
-            }
+            },
+            // Appium can take well over the 30s default to boot in CI
+            // (loading the UiAutomator2 driver on a cold cache, shared
+            // runner CPU, etc). Give it more headroom before the service
+            // gives up waiting for the "listener started" log line.
+            appiumStartTimeout: 150000
         }]
     ],
+    hostname: '127.0.0.1',
     port: 4723,
 
     framework: 'mocha',
