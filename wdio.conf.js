@@ -75,5 +75,16 @@ exports.config = {
     mochaOpts: {
         ui: 'bdd',
         timeout: 60000
+    },
+
+    /**
+     * Save a screenshot of the device whenever a test fails, so the
+     * failure state can be inspected without re-running the suite.
+     */
+    afterEach: async function (test, context, { passed }) {
+        if (!passed) {
+            const safeTitle = test.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+            await driver.saveScreenshot(`./screenshots/FAILED-${safeTitle}-${Date.now()}.png`);
+        }
     }
 }
